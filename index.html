@@ -1,0 +1,1238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Terminal Simulator</title>
+    <!-- Bootstrap Icons for minimal icon usage -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.11.3/font/bootstrap-icons.min.css">
+    <style>
+        /* Reset and global styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+        }
+        
+        body {
+            background-color: #f0f0f0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        /* Terminal container */
+        .terminal-container {
+            width: 100%;
+            max-width: 900px;
+            height: 600px;
+            background-color: #1e1e1e;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            display: flex;
+            flex-direction: column;
+            transition: all 0.3s ease;
+        }
+        
+        .terminal-container.fullscreen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            max-width: none;
+            border-radius: 0;
+            z-index: 1000;
+        }
+        
+        /* Terminal header */
+        .terminal-header {
+            background-color: #2a2a2a;
+            padding: 8px 15px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            user-select: none;
+        }
+        
+        .terminal-title {
+            color: #ffffff;
+            font-size: 14px;
+            font-weight: 500;
+            flex-grow: 1;
+            text-align: center;
+        }
+        
+        .terminal-controls {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .control-btn {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+        
+        .close-btn {
+            background-color: #ff5f56;
+        }
+        
+        .minimize-btn {
+            background-color: #ffbd2e;
+        }
+        
+        .maximize-btn {
+            background-color: #27c93f;
+        }
+        
+        /* Terminal content */
+        .terminal-content {
+            flex-grow: 1;
+            padding: 15px;
+            overflow-y: auto;
+            color: #f8f8f8;
+            line-height: 1.5;
+            background-color: #1e1e1e;
+        }
+        
+        .terminal-content::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        .terminal-content::-webkit-scrollbar-track {
+            background: #1e1e1e;
+        }
+        
+        .terminal-content::-webkit-scrollbar-thumb {
+            background: #444;
+            border-radius: 4px;
+        }
+        
+        /* Terminal input area */
+        .command-line {
+            display: flex;
+            align-items: center;
+            margin-top: 5px;
+        }
+        
+        .prompt {
+            color: #27c93f;
+            font-weight: bold;
+            margin-right: 8px;
+            white-space: nowrap;
+        }
+        
+        .command-input {
+            background: transparent;
+            border: none;
+            color: #f8f8f8;
+            font-size: inherit;
+            font-family: inherit;
+            outline: none;
+            flex-grow: 1;
+            caret-color: #f8f8f8;
+        }
+        
+        /* Command output styles */
+        .output {
+            margin: 5px 0 15px;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+        
+        .error {
+            color: #ff5f56;
+        }
+        
+        .success {
+            color: #27c93f;
+        }
+        
+        .highlight {
+            color: #ffbd2e;
+        }
+        
+        .info {
+            color: #59a2ff;
+        }
+        
+        /* Folder and file styles */
+        .folder {
+            color: #59a2ff;
+        }
+        
+        .file {
+            color: #f8f8f8;
+        }
+        
+        .executable {
+            color: #27c93f;
+        }
+        
+        /* ASCII art preservation */
+        .ascii-art {
+            font-family: monospace;
+            white-space: pre;
+        }
+        
+        /* Media Queries for Responsive Design */
+        @media (max-width: 768px) {
+            .terminal-container {
+                height: 500px;
+            }
+            
+            .terminal-title {
+                font-size: 12px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            body {
+                padding: 10px;
+            }
+            
+            .terminal-container {
+                height: 80vh;
+            }
+            
+            .terminal-header {
+                padding: 6px 10px;
+            }
+            
+            .terminal-content {
+                padding: 10px;
+                font-size: 14px;
+            }
+            
+            .control-btn {
+                width: 10px;
+                height: 10px;
+            }
+        }
+        
+        /* Animation for typing effect */
+        .typing-animation {
+            display: inline-block;
+            overflow: hidden;
+            white-space: nowrap;
+            border-right: 2px solid #f8f8f8;
+            animation: typing 3.5s steps(40, end), blink-caret 0.75s step-end infinite;
+            margin: 0 auto;
+        }
+        
+        @keyframes typing {
+            from { width: 0 }
+            to { width: 100% }
+        }
+        
+        @keyframes blink-caret {
+            from, to { border-color: transparent }
+            50% { border-color: #f8f8f8 }
+        }
+    </style>
+</head>
+<body>
+    <div class="terminal-container">
+        <div class="terminal-header">
+            <div class="terminal-controls">
+                <div class="control-btn close-btn"></div>
+                <div class="control-btn minimize-btn"></div>
+                <div class="control-btn maximize-btn" id="fullscreen-toggle"></div>
+            </div>
+            <div class="terminal-title">user@localhost: ~</div>
+            <div style="width: 36px;"></div> <!-- Spacer to balance the header -->
+        </div>
+        <div class="terminal-content" id="terminal-content">
+            <!-- Terminal content will be added here by JavaScript -->
+        </div>
+    </div>
+
+    <script>
+        // File system simulation
+        const fileSystem = {
+            '/': {
+                'home': {
+                    'user': {
+                        'Documents': {
+                            'project.txt': 'This is a project document with some notes about the current development sprint.\n\nTODO:\n- Implement user authentication\n- Fix responsive layout issues\n- Update API documentation',
+                            'notes.md': '# Meeting Notes\n\n## Project Status\n- Sprint 4 completed on time\n- All critical bugs resolved\n- New features delivered: user profiles, notification system\n\n## Next Steps\n- Begin planning for v2.0 release\n- Review resource allocation\n- Schedule security audit',
+                            'report.pdf': '[PDF CONTENT: Quarterly Performance Report]'
+                        },
+                        'Downloads': {
+                            'image.jpg': '[IMAGE DATA: Vacation photo]',
+                            'archive.zip': '[ZIP DATA: Project backup files]',
+                            'presentation.pptx': '[POWERPOINT DATA: Q3 Sales Presentation]'
+                        },
+                        'Pictures': {
+                            'vacation': {
+                                'beach.jpg': '[IMAGE DATA: Beach sunset photo]',
+                                'mountains.jpg': '[IMAGE DATA: Mountain hiking trip]'
+                            },
+                            'wallpaper.png': '[IMAGE DATA: Desktop background]'
+                        },
+                        'Projects': {
+                            'website': {
+                                'index.html': '<!DOCTYPE html>\n<html>\n<head>\n  <title>My Website</title>\n</head>\n<body>\n  <h1>Welcome to my website!</h1>\n  <p>This is a work in progress.</p>\n</body>\n</html>',
+                                'styles.css': 'body {\n  font-family: Arial, sans-serif;\n  margin: 0;\n  padding: 20px;\n  color: #333;\n}\n\nh1 {\n  color: #0066cc;\n}',
+                                'script.js': 'document.addEventListener("DOMContentLoaded", function() {\n  console.log("Page loaded!");\n});'
+                            },
+                            'notes.txt': 'Ideas for future projects:\n- Mobile app for task management\n- Machine learning model for data analysis\n- IoT home automation system'
+                        },
+                        '.bash_history': 'ls -la\ncd Documents\ngit status\nsudo apt update\nvim .bashrc\nclear\nnpm install\necho $PATH',
+                        '.bashrc': '# ~/.bashrc\n\n# Aliases\nalias ll="ls -alF"\nalias la="ls -A"\nalias l="ls -CF"\nalias c="clear"\n\n# Environment variables\nexport PATH=$PATH:/usr/local/bin\nexport EDITOR=vim',
+                        '.ramazancetinkaya': '© 2025 Ramazan Çetinkaya. All rights reserved.\n\nGitHub: https://github.com/ramazancetinkaya\n\nThis terminal simulation is protected by copyright law.\nUnauthorized reproduction or distribution may result in severe civil and criminal penalties.'
+                    }
+                },
+                'usr': {
+                    'bin': {
+                        'python': '[EXECUTABLE]',
+                        'node': '[EXECUTABLE]',
+                        'npm': '[EXECUTABLE]',
+                        'git': '[EXECUTABLE]',
+                        'docker': '[EXECUTABLE]'
+                    },
+                    'local': {
+                        'bin': {
+                            'kubectl': '[EXECUTABLE]',
+                            'terraform': '[EXECUTABLE]',
+                            'go': '[EXECUTABLE]'
+                        }
+                    },
+                    'share': {
+                        'doc': {
+                            'examples': '[Documentation Files]'
+                        }
+                    }
+                },
+                'etc': {
+                    'hosts': '127.0.0.1 localhost\n::1 localhost ip6-localhost ip6-loopback\n192.168.1.1 router.local',
+                    'resolv.conf': 'nameserver 8.8.8.8\nnameserver 8.8.4.4',
+                    'ssh': {
+                        'ssh_config': '# SSH client configuration\nHost *\n  ServerAliveInterval 60\n  ServerAliveCountMax 30'
+                    }
+                },
+                'var': {
+                    'log': {
+                        'syslog': '[SYSTEM LOGS]',
+                        'auth.log': '[AUTHENTICATION LOGS]',
+                        'kern.log': '[KERNEL LOGS]'
+                    },
+                    'cache': {
+                        'apt': '[APT CACHE DATA]'
+                    }
+                }
+            }
+        };
+
+        // Current working directory
+        let currentPath = '/home/user';
+        
+        // Command history
+        let commandHistory = [];
+        let historyIndex = -1;
+        
+        // Terminal element
+        const terminalContent = document.getElementById('terminal-content');
+        
+        // Get current directory object from path
+        function getDirectoryFromPath(path) {
+            const parts = path.split('/').filter(p => p);
+            let current = fileSystem['/'];
+            
+            for (const part of parts) {
+                if (current[part] === undefined) {
+                    return null;
+                }
+                current = current[part];
+            }
+            
+            return current;
+        }
+        
+        // Format path for display
+        function formatPathForPrompt(path) {
+            if (path === '/home/user') return '~';
+            if (path.startsWith('/home/user/')) return '~' + path.substring(10);
+            return path;
+        }
+        
+        // Update terminal prompt
+        function updatePrompt() {
+            const promptElements = document.querySelectorAll('.prompt');
+            const displayPath = formatPathForPrompt(currentPath);
+            
+            promptElements.forEach(prompt => {
+                prompt.innerHTML = `<span style="color: #59a2ff;">user@localhost</span>:<span style="color: #ffbd2e;">${displayPath}</span>$ `;
+            });
+            
+            // Update terminal title
+            document.querySelector('.terminal-title').textContent = `user@localhost: ${displayPath}`;
+        }
+        
+        // Add command to terminal
+        function addCommandToTerminal(command) {
+            const commandLine = document.createElement('div');
+            commandLine.className = 'command-line';
+            
+            const prompt = document.createElement('div');
+            prompt.className = 'prompt';
+            prompt.innerHTML = `<span style="color: #59a2ff;">user@localhost</span>:<span style="color: #ffbd2e;">${formatPathForPrompt(currentPath)}</span>$ `;
+            
+            const commandText = document.createElement('div');
+            commandText.textContent = command;
+            
+            commandLine.appendChild(prompt);
+            commandLine.appendChild(commandText);
+            terminalContent.appendChild(commandLine);
+        }
+        
+        // Add output to terminal
+        function addOutputToTerminal(output, className = '') {
+            const outputElement = document.createElement('div');
+            outputElement.className = 'output ' + className;
+            outputElement.innerHTML = output;
+            terminalContent.appendChild(outputElement);
+            
+            // Scroll to bottom
+            terminalContent.scrollTop = terminalContent.scrollHeight;
+        }
+        
+        // Create input line
+        function createInputLine() {
+            const commandLine = document.createElement('div');
+            commandLine.className = 'command-line';
+            
+            const prompt = document.createElement('div');
+            prompt.className = 'prompt';
+            prompt.innerHTML = `<span style="color: #59a2ff;">user@localhost</span>:<span style="color: #ffbd2e;">${formatPathForPrompt(currentPath)}</span>$ `;
+            
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.className = 'command-input';
+            input.autofocus = true;
+            
+            commandLine.appendChild(prompt);
+            commandLine.appendChild(input);
+            terminalContent.appendChild(commandLine);
+            
+            input.focus();
+            
+            // Handle command input
+            input.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') {
+                    const command = this.value.trim();
+                    
+                    // Disable input
+                    this.disabled = true;
+                    this.style.width = this.value.length + 'ch';
+                    
+                    // Add command to history
+                    if (command) {
+                        commandHistory.unshift(command);
+                        historyIndex = -1;
+                    }
+                    
+                    // Process command
+                    processCommand(command);
+                    
+                    // Create new input line
+                    createInputLine();
+                } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    if (historyIndex < commandHistory.length - 1) {
+                        historyIndex++;
+                        this.value = commandHistory[historyIndex];
+                    }
+                } else if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    if (historyIndex > 0) {
+                        historyIndex--;
+                        this.value = commandHistory[historyIndex];
+                    } else if (historyIndex === 0) {
+                        historyIndex = -1;
+                        this.value = '';
+                    }
+                } else if (e.key === 'Tab') {
+                    e.preventDefault();
+                    const inputValue = this.value;
+                    const parts = inputValue.split(' ');
+                    
+                    // Only attempt tab completion for the last part
+                    if (parts.length > 0) {
+                        const lastPart = parts[parts.length - 1];
+                        
+                        // Don't attempt completion for empty strings
+                        if (lastPart) {
+                            // Determine the directory to search in
+                            let searchDir;
+                            let searchPath;
+                            
+                            if (lastPart.includes('/')) {
+                                // For paths with slashes, get the directory part
+                                const lastSlashIndex = lastPart.lastIndexOf('/');
+                                const dirPart = lastPart.substring(0, lastSlashIndex + 1);
+                                const filePart = lastPart.substring(lastSlashIndex + 1);
+                                
+                                // Resolve path
+                                if (lastPart.startsWith('/')) {
+                                    searchPath = dirPart; // Absolute path
+                                } else if (lastPart.startsWith('~/')) {
+                                    searchPath = '/home/user/' + dirPart.substring(2);
+                                } else {
+                                    searchPath = currentPath + '/' + dirPart;
+                                }
+                                
+                                searchDir = getDirectoryFromPath(searchPath);
+                                searchPath = searchPath.endsWith('/') ? searchPath : searchPath + '/';
+                            } else {
+                                // For simple filenames, search in current directory
+                                searchDir = getDirectoryFromPath(currentPath);
+                                searchPath = currentPath + '/';
+                            }
+                            
+                            // If directory exists, find matching entries
+                            if (searchDir) {
+                                const filenamePart = lastPart.includes('/') ? 
+                                    lastPart.substring(lastPart.lastIndexOf('/') + 1) : 
+                                    lastPart;
+                                
+                                const matches = Object.keys(searchDir).filter(name => 
+                                    name.startsWith(filenamePart)
+                                );
+                                
+                                if (matches.length === 1) {
+                                    // Single match - complete it
+                                    const completion = matches[0];
+                                    
+                                    // Replace the last part with the completion
+                                    parts[parts.length - 1] = lastPart.substring(0, lastPart.lastIndexOf('/') + 1) + completion;
+                                    
+                                    // Add trailing slash if it's a directory
+                                    if (typeof searchDir[completion] === 'object') {
+                                        parts[parts.length - 1] += '/';
+                                    }
+                                    
+                                    this.value = parts.join(' ');
+                                } else if (matches.length > 1) {
+                                    // Multiple matches - show them
+                                    addOutputToTerminal(matches.map(m => {
+                                        if (typeof searchDir[m] === 'object') {
+                                            return `<span class="folder">${m}/</span>`;
+                                        } else if (m.endsWith('.jpg') || m.endsWith('.png') || m.endsWith('.gif')) {
+                                            return `<span class="file">${m}</span>`;
+                                        } else if (searchDir[m] === '[EXECUTABLE]') {
+                                            return `<span class="executable">${m}</span>`;
+                                        } else {
+                                            return `<span class="file">${m}</span>`;
+                                        }
+                                    }).join('  '));
+                                    
+                                    // Find common prefix
+                                    let commonPrefix = filenamePart;
+                                    let position = filenamePart.length;
+                                    let allMatch = true;
+                                    
+                                    while (allMatch && matches[0][position]) {
+                                        const char = matches[0][position];
+                                        for (let i = 1; i < matches.length; i++) {
+                                            if (matches[i][position] !== char) {
+                                                allMatch = false;
+                                                break;
+                                            }
+                                        }
+                                        
+                                        if (allMatch) {
+                                            commonPrefix += char;
+                                            position++;
+                                        }
+                                    }
+                                    
+                                    if (commonPrefix !== filenamePart) {
+                                        parts[parts.length - 1] = lastPart.substring(0, lastPart.lastIndexOf('/') + 1) + commonPrefix;
+                                        this.value = parts.join(' ');
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+            
+            // Focus input when clicking anywhere in the terminal
+            terminalContent.addEventListener('click', function() {
+                const activeInput = document.querySelector('.command-input:not([disabled])');
+                if (activeInput) {
+                    activeInput.focus();
+                }
+            });
+            
+            // Scroll to bottom
+            terminalContent.scrollTop = terminalContent.scrollHeight;
+        }
+        
+        // Process command
+        function processCommand(command) {
+            if (!command) {
+                return;
+            }
+            
+            const parts = command.split(' ');
+            const cmd = parts[0];
+            const args = parts.slice(1);
+            
+            switch (cmd) {
+                case 'clear':
+                    clearTerminal();
+                    break;
+                
+                case 'ls':
+                    listDirectory(args);
+                    break;
+                
+                case 'cd':
+                    changeDirectory(args[0]);
+                    break;
+                
+                case 'pwd':
+                    showCurrentPath();
+                    break;
+                
+                case 'cat':
+                    catFile(args[0]);
+                    break;
+                
+                case 'mkdir':
+                    createDirectory(args[0]);
+                    break;
+                
+                case 'touch':
+                    createFile(args[0]);
+                    break;
+                
+                case 'rm':
+                    removeFile(args);
+                    break;
+                
+                case 'echo':
+                    echoText(args);
+                    break;
+                
+                case 'date':
+                    showDate();
+                    break;
+                
+                case 'whoami':
+                    showUser();
+                    break;
+                
+                case 'help':
+                    showHelp();
+                    break;
+                
+                case 'uname':
+                    showSystemInfo(args);
+                    break;
+                
+                case 'neofetch':
+                    showNeofetch();
+                    break;
+                
+                case 'history':
+                    showHistory();
+                    break;
+                
+                case 'find':
+                    findFiles(args);
+                    break;
+                
+                default:
+                    addOutputToTerminal(`Command not found: ${cmd}. Type 'help' for available commands.`, 'error');
+            }
+        }
+        
+        // Clear terminal
+        function clearTerminal() {
+            terminalContent.innerHTML = '';
+        }
+        
+        // List directory
+        function listDirectory(args) {
+            const showAll = args.includes('-a') || args.includes('-la') || args.includes('-al');
+            const showLong = args.includes('-l') || args.includes('-la') || args.includes('-al');
+            
+            let targetPath = currentPath;
+            
+            // Filter out options to get the path argument
+            const pathArg = args.find(arg => !arg.startsWith('-'));
+            
+            if (pathArg) {
+                if (pathArg.startsWith('/')) {
+                    targetPath = pathArg;
+                } else if (pathArg.startsWith('~/')) {
+                    targetPath = '/home/user/' + pathArg.substring(2);
+                } else {
+                    targetPath = currentPath + '/' + pathArg;
+                }
+            }
+            
+            const directory = getDirectoryFromPath(targetPath);
+            
+            if (!directory) {
+                addOutputToTerminal(`ls: cannot access '${pathArg}': No such file or directory`, 'error');
+                return;
+            }
+            
+            if (typeof directory !== 'object') {
+                addOutputToTerminal(`ls: cannot list '${pathArg}': Not a directory`, 'error');
+                return;
+            }
+            
+            let entries = Object.keys(directory);
+            
+            if (!showAll) {
+                entries = entries.filter(entry => !entry.startsWith('.'));
+            }
+            
+            if (showLong) {
+                const now = new Date();
+                const date = `${now.toLocaleString('default', { month: 'short' })} ${now.getDate().toString().padStart(2, ' ')} ${now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`;
+                
+                let output = 'total ' + entries.length + '\n';
+                
+                entries.forEach(entry => {
+                    const isDir = typeof directory[entry] === 'object';
+                    const permissions = isDir ? 'drwxr-xr-x' : '-rw-r--r--';
+                    const owner = 'user';
+                    const group = 'user';
+                    const size = isDir ? '-' : Math.floor(Math.random() * 10000).toString();
+                    
+                    let entryName = entry;
+                    if (isDir) {
+                        entryName = `<span class="folder">${entry}/</span>`;
+                    } else if (entry.endsWith('.jpg') || entry.endsWith('.png') || entry.endsWith('.gif')) {
+                        entryName = `<span class="file">${entry}</span>`;
+                    } else if (directory[entry] === '[EXECUTABLE]') {
+                        entryName = `<span class="executable">${entry}</span>`;
+                    } else {
+                        entryName = `<span class="file">${entry}</span>`;
+                    }
+                    
+                    output += `${permissions} 1 ${owner} ${group} ${size.padStart(8)} ${date} ${entryName}\n`;
+                });
+                
+                addOutputToTerminal(output.trim());
+            } else {
+                const formattedEntries = entries.map(entry => {
+                    if (typeof directory[entry] === 'object') {
+                        return `<span class="folder">${entry}/</span>`;
+                    } else if (entry.endsWith('.jpg') || entry.endsWith('.png') || entry.endsWith('.gif')) {
+                        return `<span class="file">${entry}</span>`;
+                    } else if (directory[entry] === '[EXECUTABLE]') {
+                        return `<span class="executable">${entry}</span>`;
+                    } else {
+                        return `<span class="file">${entry}</span>`;
+                    }
+                });
+                
+                addOutputToTerminal(formattedEntries.join('  '));
+            }
+        }
+        
+        // Change directory
+        function changeDirectory(path) {
+            if (!path) {
+                currentPath = '/home/user';
+                updatePrompt();
+                return;
+            }
+            
+            let targetPath;
+            
+            if (path === '..') {
+                // Go up one level
+                if (currentPath === '/') {
+                    addOutputToTerminal('cd: already at root directory');
+                    return;
+                }
+                
+                const parts = currentPath.split('/').filter(p => p);
+                parts.pop();
+                targetPath = '/' + parts.join('/');
+                
+                if (targetPath === '') {
+                    targetPath = '/';
+                }
+            } else if (path === '~' || path === '/home/user') {
+                // Go to home directory
+                targetPath = '/home/user';
+            } else if (path.startsWith('/')) {
+                // Absolute path
+                targetPath = path;
+            } else if (path.startsWith('~/')) {
+                // Path relative to home
+                targetPath = '/home/user/' + path.substring(2);
+            } else {
+                // Path relative to current directory
+                targetPath = currentPath === '/' ? '/' + path : currentPath + '/' + path;
+            }
+            
+            // Remove trailing slash if present
+            if (targetPath !== '/' && targetPath.endsWith('/')) {
+                targetPath = targetPath.slice(0, -1);
+            }
+            
+            const directory = getDirectoryFromPath(targetPath);
+            
+            if (!directory) {
+                addOutputToTerminal(`cd: no such directory: ${path}`, 'error');
+                return;
+            }
+            
+            if (typeof directory !== 'object') {
+                addOutputToTerminal(`cd: not a directory: ${path}`, 'error');
+                return;
+            }
+            
+            currentPath = targetPath;
+            updatePrompt();
+        }
+        
+        // Show current path
+        function showCurrentPath() {
+            addOutputToTerminal(currentPath);
+        }
+        
+        // Cat file
+        function catFile(path) {
+            if (!path) {
+                addOutputToTerminal('cat: missing file operand', 'error');
+                return;
+            }
+            
+            let targetPath;
+            let filename;
+            
+            if (path.startsWith('/')) {
+                // Absolute path
+                targetPath = path;
+            } else if (path.startsWith('~/')) {
+                // Path relative to home
+                targetPath = '/home/user/' + path.substring(2);
+            } else {
+                // Path relative to current directory
+                targetPath = currentPath === '/' ? '/' + path : currentPath + '/' + path;
+            }
+            
+            // Split into directory and filename
+            const lastSlashIndex = targetPath.lastIndexOf('/');
+            const dirPath = targetPath.substring(0, lastSlashIndex || 1);
+            filename = targetPath.substring(lastSlashIndex + 1);
+            
+            const directory = getDirectoryFromPath(dirPath);
+            
+            if (!directory) {
+                addOutputToTerminal(`cat: ${path}: No such file or directory`, 'error');
+                return;
+            }
+            
+            if (!directory[filename]) {
+                addOutputToTerminal(`cat: ${path}: No such file or directory`, 'error');
+                return;
+            }
+            
+            if (typeof directory[filename] === 'object') {
+                addOutputToTerminal(`cat: ${path}: Is a directory`, 'error');
+                return;
+            }
+            
+            addOutputToTerminal(directory[filename]);
+        }
+        
+        // Create directory
+        function createDirectory(path) {
+            if (!path) {
+                addOutputToTerminal('mkdir: missing operand', 'error');
+                return;
+            }
+            
+            let targetPath;
+            let dirName;
+            
+            if (path.startsWith('/')) {
+                // Absolute path
+                targetPath = path;
+            } else if (path.startsWith('~/')) {
+                // Path relative to home
+                targetPath = '/home/user/' + path.substring(2);
+            } else {
+                // Path relative to current directory
+                targetPath = currentPath === '/' ? '/' + path : currentPath + '/' + path;
+            }
+            
+            // Split into parent directory and new directory name
+            const lastSlashIndex = targetPath.lastIndexOf('/');
+            const parentPath = targetPath.substring(0, lastSlashIndex || 1);
+            dirName = targetPath.substring(lastSlashIndex + 1);
+            
+            const parentDir = getDirectoryFromPath(parentPath);
+            
+            if (!parentDir) {
+                addOutputToTerminal(`mkdir: cannot create directory '${path}': No such file or directory`, 'error');
+                return;
+            }
+            
+            if (typeof parentDir !== 'object') {
+                addOutputToTerminal(`mkdir: cannot create directory '${path}': Not a directory`, 'error');
+                return;
+            }
+            
+            if (parentDir[dirName]) {
+                addOutputToTerminal(`mkdir: cannot create directory '${path}': File exists`, 'error');
+                return;
+            }
+            
+            // Create the directory
+            parentDir[dirName] = {};
+            addOutputToTerminal('');
+        }
+        
+        // Create file
+        function createFile(path) {
+            if (!path) {
+                addOutputToTerminal('touch: missing file operand', 'error');
+                return;
+            }
+            
+            let targetPath;
+            let fileName;
+            
+            if (path.startsWith('/')) {
+                // Absolute path
+                targetPath = path;
+            } else if (path.startsWith('~/')) {
+                // Path relative to home
+                targetPath = '/home/user/' + path.substring(2);
+            } else {
+                // Path relative to current directory
+                targetPath = currentPath === '/' ? '/' + path : currentPath + '/' + path;
+            }
+            
+            // Split into parent directory and new file name
+            const lastSlashIndex = targetPath.lastIndexOf('/');
+            const parentPath = targetPath.substring(0, lastSlashIndex || 1);
+            fileName = targetPath.substring(lastSlashIndex + 1);
+            
+            const parentDir = getDirectoryFromPath(parentPath);
+            
+            if (!parentDir) {
+                addOutputToTerminal(`touch: cannot touch '${path}': No such file or directory`, 'error');
+                return;
+            }
+            
+            if (typeof parentDir !== 'object') {
+                addOutputToTerminal(`touch: cannot touch '${path}': Not a directory`, 'error');
+                return;
+            }
+            
+            // Create or update the file
+            if (!parentDir[fileName]) {
+                parentDir[fileName] = '';
+            }
+            
+            addOutputToTerminal('');
+        }
+        
+        // Remove file
+        function removeFile(args) {
+            if (args.length === 0) {
+                addOutputToTerminal('rm: missing operand', 'error');
+                return;
+            }
+            
+            const recursive = args.includes('-r') || args.includes('-rf') || args.includes('-fr');
+            
+            // Filter out options to get the file arguments
+            const fileArgs = args.filter(arg => !arg.startsWith('-'));
+            
+            if (fileArgs.length === 0) {
+                addOutputToTerminal('rm: missing operand', 'error');
+                return;
+            }
+            
+            for (const path of fileArgs) {
+                let targetPath;
+                let itemName;
+                
+                if (path.startsWith('/')) {
+                    // Absolute path
+                    targetPath = path;
+                } else if (path.startsWith('~/')) {
+                    // Path relative to home
+                    targetPath = '/home/user/' + path.substring(2);
+                } else {
+                    // Path relative to current directory
+                    targetPath = currentPath === '/' ? '/' + path : currentPath + '/' + path;
+                }
+                
+                // Split into parent directory and item name
+                const lastSlashIndex = targetPath.lastIndexOf('/');
+                const parentPath = targetPath.substring(0, lastSlashIndex || 1);
+                itemName = targetPath.substring(lastSlashIndex + 1);
+                
+                const parentDir = getDirectoryFromPath(parentPath);
+                
+                if (!parentDir) {
+                    addOutputToTerminal(`rm: cannot remove '${path}': No such file or directory`, 'error');
+                    continue;
+                }
+                
+                if (!parentDir[itemName]) {
+                    addOutputToTerminal(`rm: cannot remove '${path}': No such file or directory`, 'error');
+                    continue;
+                }
+                
+                if (typeof parentDir[itemName] === 'object' && !recursive) {
+                    addOutputToTerminal(`rm: cannot remove '${path}': Is a directory`, 'error');
+                    continue;
+                }
+                
+                // Remove the item
+                delete parentDir[itemName];
+            }
+        }
+        
+        // Echo text
+        function echoText(args) {
+            if (args.length === 0) {
+                addOutputToTerminal('');
+                return;
+            }
+            
+            const text = args.join(' ');
+            addOutputToTerminal(text);
+        }
+        
+        // Show date
+        function showDate() {
+            const now = new Date();
+            addOutputToTerminal(now.toString());
+        }
+        
+        // Show user
+        function showUser() {
+            addOutputToTerminal('user');
+        }
+        
+        // Find files
+        function findFiles(args) {
+            if (args.length === 0) {
+                addOutputToTerminal('find: missing path argument', 'error');
+                return;
+            }
+            
+            let startPath = args[0];
+            let pattern = args.length > 1 ? args[1] : '*';
+            
+            // Resolve start path
+            if (startPath.startsWith('/')) {
+                // Absolute path
+            } else if (startPath.startsWith('~/')) {
+                startPath = '/home/user/' + startPath.substring(2);
+            } else {
+                startPath = currentPath === '/' ? '/' + startPath : currentPath + '/' + startPath;
+            }
+            
+            const startDir = getDirectoryFromPath(startPath);
+            
+            if (!startDir) {
+                addOutputToTerminal(`find: '${args[0]}': No such file or directory`, 'error');
+                return;
+            }
+            
+            if (typeof startDir !== 'object') {
+                addOutputToTerminal(`find: '${args[0]}': Not a directory`, 'error');
+                return;
+            }
+            
+            // Perform search
+            const results = [];
+            
+            function search(dir, path, pattern) {
+                for (const [name, content] of Object.entries(dir)) {
+                    const fullPath = path + '/' + name;
+                    
+                    // Check if name matches pattern (simple implementation)
+                    if (pattern === '*' || name.includes(pattern)) {
+                        results.push(fullPath);
+                    }
+                    
+                    // Recursively search directories
+                    if (typeof content === 'object') {
+                        search(content, fullPath, pattern);
+                    }
+                }
+            }
+            
+            search(startDir, startPath, pattern);
+            
+            if (results.length === 0) {
+                addOutputToTerminal(`No matches found for '${pattern}' in ${startPath}`);
+            } else {
+                addOutputToTerminal(results.join('\n'));
+            }
+        }
+        
+        // Show system info
+        function showSystemInfo(args) {
+            if (args.includes('-a')) {
+                addOutputToTerminal('Linux localhost 6.4.0-060400-generic #202307101846 SMP PREEMPT_DYNAMIC Mon Jul 10 18:52:14 UTC 2023 x86_64 GNU/Linux');
+            } else {
+                addOutputToTerminal('Linux');
+            }
+        }
+        
+        // Show neofetch
+        function showNeofetch() {
+            const asciiLogo = `
+<span class="info">            .-/+oossssoo+/-.               </span><span style="color: #59a2ff;">user@localhost</span>
+<span class="info">        \`:+ssssssssssssssssss+:\`           </span>-----------------
+<span class="info">      -+ssssssssssssssssssyyssss+-         </span><span style="color: #59a2ff;">OS:</span> Ubuntu 23.04 x86_64
+<span class="info">    .ossssssssssssssssssdMMMNysssso.       </span><span style="color: #59a2ff;">Kernel:</span> 6.4.0-060400-generic
+<span class="info">   /ssssssssssshdmmNNmmyNMMMMhssssss/      </span><span style="color: #59a2ff;">Uptime:</span> 5 hours, 17 mins
+<span class="info">  +ssssssssshmydMMMMMMMNddddyssssssss+     </span><span style="color: #59a2ff;">Packages:</span> 1821 (apt)
+<span class="info"> /sssssssshNMMMyhhyyyyhmNMMMNhssssssss/    </span><span style="color: #59a2ff;">Shell:</span> bash 5.2.15
+<span class="info">.ssssssssdMMMNhsssssssssshNMMMdssssssss.   </span><span style="color: #59a2ff;">Resolution:</span> 1920x1080
+<span class="info">+sssshhhyNMMNyssssssssssssyNMMMysssssss+   </span><span style="color: #59a2ff;">DE:</span> GNOME 44.2
+<span class="info">ossyNMMMNyMMhsssssssssssssshmmmhssssssso   </span><span style="color: #59a2ff;">WM:</span> Mutter
+<span class="info">ossyNMMMNyMMhsssssssssssssshmmmhssssssso   </span><span style="color: #59a2ff;">WM Theme:</span> Adwaita
+<span class="info">+sssshhhyNMMNyssssssssssssyNMMMysssssss+   </span><span style="color: #59a2ff;">Theme:</span> Adwaita [GTK3]
+<span class="info">.ssssssssdMMMNhsssssssssshNMMMdssssssss.   </span><span style="color: #59a2ff;">Icons:</span> Ubuntu-mono-dark
+<span class="info"> /sssssssshNMMMyhhyyyyhdNMMMNhssssssss/    </span><span style="color: #59a2ff;">Terminal:</span> gnome-terminal
+<span class="info">  +sssssssssdmydMMMMMMMMddddyssssssss+     </span><span style="color: #59a2ff;">CPU:</span> Intel i7-12700K (16) @ 4.90GHz
+<span class="info">   /ssssssssssshdmNNNNmyNMMMMhssssss/      </span><span style="color: #59a2ff;">GPU:</span> NVIDIA GeForce RTX 3080
+<span class="info">    .ossssssssssssssssssdMMMNysssso.       </span><span style="color: #59a2ff;">Memory:</span> 16384MiB / 32768MiB
+<span class="info">      -+sssssssssssssssssyyyssss+-         </span>
+<span class="info">        \`:+ssssssssssssssssss+:\`           </span><span style="color: #ff5f56">●</span> <span style="color: #ffbd2e">●</span> <span style="color: #27c93f">●</span> <span style="color: #59a2ff">●</span> <span style="color: #ffffff">●</span> <span style="color: #666666">●</span>
+<span class="info">            .-/+oossssoo+/-.               </span>
+            `;
+            
+            addOutputToTerminal(`<div class="ascii-art">${asciiLogo}</div>`);
+        }
+        
+        // Show help
+        function showHelp() {
+            const helpText = `
+<span class="highlight">Available commands:</span>
+
+<span class="info">cd [directory]</span> - Change the current directory
+<span class="info">ls [options] [directory]</span> - List directory contents
+<span class="info">pwd</span> - Print working directory
+<span class="info">cat [file]</span> - Display file content
+<span class="info">mkdir [directory]</span> - Create a directory
+<span class="info">touch [file]</span> - Create a file
+<span class="info">rm [options] [file]</span> - Remove files or directories
+<span class="info">echo [text]</span> - Display a line of text
+<span class="info">date</span> - Display the current date and time
+<span class="info">whoami</span> - Display current username
+<span class="info">uname [options]</span> - Display system information
+<span class="info">neofetch</span> - Display system information with ASCII art
+<span class="info">find [path] [pattern]</span> - Search for files
+<span class="info">history</span> - Display command history
+<span class="info">clear</span> - Clear the terminal screen
+<span class="info">help</span> - Display this help information
+
+<span class="highlight">Options:</span>
+<span class="info">ls -l</span> - Use long listing format
+<span class="info">ls -a</span> - Show hidden files
+<span class="info">rm -r</span> - Remove directories and their contents recursively
+`;
+            
+            addOutputToTerminal(helpText);
+        }
+        
+        // Show history
+        function showHistory() {
+            if (commandHistory.length === 0) {
+                addOutputToTerminal('No commands in history');
+                return;
+            }
+            
+            let historyText = '';
+            
+            for (let i = 0; i < commandHistory.length; i++) {
+                historyText += `${i + 1}  ${commandHistory[i]}\n`;
+            }
+            
+            addOutputToTerminal(historyText.trim());
+        }
+        
+        // Animated intro text
+        function startIntro() {
+            const introTexts = [
+                'Starting system...',
+                'Loading kernel modules...',
+                'Initializing filesystem...',
+                'Starting network services...',
+                'System ready!'
+            ];
+            
+            let index = 0;
+            
+            function showNextIntro() {
+                if (index < introTexts.length) {
+                    const text = introTexts[index];
+                    
+                    const introElement = document.createElement('div');
+                    introElement.className = 'typing-animation';
+                    introElement.textContent = text;
+                    terminalContent.appendChild(introElement);
+                    
+                    terminalContent.scrollTop = terminalContent.scrollHeight;
+                    
+                    index++;
+                    
+                    // Remove animation after it completes
+                    setTimeout(() => {
+                        introElement.style.borderRight = 'none';
+                        introElement.classList.remove('typing-animation');
+                        
+                        // Show next intro text or start terminal
+                        setTimeout(() => {
+                            if (index < introTexts.length) {
+                                showNextIntro();
+                            } else {
+                                // Intro complete, show welcome message and start terminal
+                                setTimeout(() => {
+                                    addOutputToTerminal(`
+<span class="highlight">Welcome to Terminal</span>
+<span class="info">Version 1.0.0 (August 2025)</span>
+
+Type 'help' to see a list of available commands.
+`);
+                                    createInputLine();
+                                }, 500);
+                            }
+                        }, 500);
+                    }, 2000);
+                }
+            }
+            
+            showNextIntro();
+        }
+        
+        // Toggle fullscreen
+        document.getElementById('fullscreen-toggle').addEventListener('click', function() {
+            document.querySelector('.terminal-container').classList.toggle('fullscreen');
+        });
+        
+        // Start the terminal
+        startIntro();
+    </script>
+</body>
+</html>
